@@ -1,0 +1,215 @@
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800;900&display=swap');
+
+/* تحويل التوجيهات لتتوافق مع إصدار Tailwind v3 */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --font-sans: "Cairo", system-ui, -apple-system, sans-serif;
+  --color-slate-900: #0f172a;
+  --color-slate-800: #1e293b;
+  --color-slate-700: #334155;
+  --color-slate-50: #f8fafc;
+}
+
+/* global styling overrides for Elegant Dark */
+body {
+  font-family: "Cairo", system-ui, -apple-system, sans-serif !important;
+  direction: rtl;
+  text-align: right;
+  background-color: #0f172a !important;
+  color: #f8fafc !important;
+  margin: 0;
+}
+
+/* Ensure outer wrapper pages adapt to the Elegant Dark layout */
+.min-h-screen {
+  background-color: #0f172a !important;
+}
+
+/* Transform all standard bg-white cards and layout headers into Elegant Dark blocks */
+.bg-white {
+  background-color: #1e293b !important;
+  border-color: #334155 !important;
+  color: #f8fafc !important;
+}
+
+/* Ensure background tints like bg-gray-50 adapt to dark slate bg */
+.bg-gray-50 {
+  background-color: #0f172a !important;
+}
+
+.bg-gray-100 {
+  background-color: #1e293b !important;
+}
+
+/* Styling border colors to match grey-700 border theme */
+.border-gray-50, 
+.border-gray-100, 
+.border-gray-150, 
+.border-gray-200,
+.border-gray-300 {
+  border-color: #334155 !important;
+}
+
+/* Solidifying typography contrast against dark backgrounds */
+.text-gray-900 {
+  color: #f8fafc !important;
+}
+
+.text-gray-800 {
+  color: #f1f5f9 !important;
+}
+
+.text-gray-750, 
+.text-gray-700 {
+  color: #f1f5f9 !important;
+}
+
+.text-gray-650, 
+.text-gray-600 {
+  color: #cbd5e1 !important;
+}
+
+.text-gray-500 {
+  color: #94a3b8 !important;
+}
+
+.text-gray-400 {
+  color: #64748b !important;
+}
+
+/* Safe treatment of text-white inside colored badges/buttons */
+.text-white {
+  color: #ffffff !important;
+}
+
+/* Inputs, drop-downs, and forms styled as Elegant Dark components */
+input, 
+select, 
+textarea {
+  background-color: #111827 !important;
+  border: 1px solid #374151 !important;
+  color: #f8fafc !important;
+  border-radius: 10px !important;
+}
+
+input::placeholder, 
+textarea::placeholder {
+  color: #64748b !important;
+}
+
+input:focus, 
+select:focus, 
+textarea:focus {
+  border-color: #4f46e5 !important;
+  background-color: #1f2937 !important;
+  outline: none !important;
+  box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.4) !important;
+}
+
+/* Custom tabs logic: fix inactive tabs readability */
+button.text-gray-500:not(.bg-indigo-600):not(.text-indigo-700) {
+  color: #94a3b8 !important;
+}
+button.text-gray-500:not(.bg-indigo-600):not(.text-indigo-700):hover {
+  color: #f8fafc !important;
+  background-color: #1e293b !important;
+}
+
+/* Badges adjustments */
+.bg-indigo-50 {
+  background-color: rgba(79, 70, 229, 0.2) !important;
+  color: #a5b4fc !important;
+}
+
+.text-indigo-700 {
+  color: #a5b4fc !important;
+}
+
+.text-indigo-800 {
+  color: #c7d2fe !important;
+}
+
+.bg-emerald-50 {
+  background-color: rgba(16, 185, 129, 0.15) !important;
+  color: #a7f3d0 !important;
+}
+
+.text-emerald-800, 
+.text-green-700,
+.text-emerald-600 {
+  color: #34d399 !important;
+}
+
+.bg-green-50, .bg-green-100 {
+  background-color: rgba(16, 185, 129, 0.15) !important;
+}
+
+.bg-rose-50, .bg-red-50 {
+  background-color: rgba(244, 63, 94, 0.15) !important;
+}
+
+.text-rose-700, .text-red-750, .text-red-700, .text-rose-600 {
+  color: #f87171 !important;
+}
+
+.bg-amber-50 {
+  background-color: rgba(245, 158, 11, 0.15) !important;
+  color: #fde047 !important;
+}
+
+.text-amber-850, .text-amber-800 {
+  color: #fbbf24 !important;
+}
+
+/* Modals overlays background dark tint */
+.bg-black\/50, .bg-black\/40, .bg-black\/15 {
+  background-color: rgba(0, 0, 0, 0.6) !important;
+}
+
+/* Custom scrollbars inside the application window */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #0f172a !important;
+}
+::-webkit-scrollbar-thumb {
+  background: #334155 !important;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #475569 !important;
+}
+
+/* Smooth motion custom transitions if present */
+.transition-all {
+  transition-property: all;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 250ms;
+}
+
+/* Enhance tables under the dark mode */
+table {
+  border-color: #334155 !important;
+}
+
+thead {
+  background-color: #111827 !important;
+  color: #cbd5e1 !important;
+}
+
+tr {
+  border-bottom: 1px solid #334155 !important;
+}
+
+tr:hover {
+  background-color: rgba(51, 65, 85, 0.3) !important;
+}
+
+td {
+  color: #e2e8f0 !important;
+}
