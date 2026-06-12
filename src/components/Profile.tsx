@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { User } from '../types';
-import { User as UserIcon, Mail, Briefcase, Building, Shield, Lock, CheckCircle, Edit, Save, LogOut } from 'lucide-react';
+import { User as UserIcon, Mail, Briefcase, Building, Shield, Lock, CheckCircle, Edit, Save, LogOut, Palette } from 'lucide-react';
 import { motion } from 'motion/react';
+import { db } from '../firebase';
+import { doc, updateDoc } from 'firebase/firestore';
 
 interface ProfileProps {
   user: User;
@@ -9,30 +11,89 @@ interface ProfileProps {
   onLogout: () => void;
 }
 
+const AVATAR_COLORS = [
+  'bg-indigo-600',
+  'bg-pink-500',
+  'bg-emerald-500',
+  'bg-amber-500',
+  'bg-blue-600',
+  'bg-violet-600',
+  'bg-rose-500',
+  'bg-teal-500',
+  'bg-orange-500',
+  'bg-slate-600',
+];
+
 export default function Profile({ user, onUpdateProfile, onLogout }: ProfileProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [name, setName] = useState(user.name);
   const [jobTitle, setJobTitle] = useState(user.jobTitle || '');
   const [department, setDepartment] = useState(user.department || '');
-  const [password, setPassword] = useState(user.password || '');
+  const [password, setPassword] = useState('');
+  const [avatarColor, setAvatarColor] = useState(user.avatarColor || 'bg-indigo-600');
   const [success, setSuccess] = useState('');
+  const [error, setError] = useState('');
+  const [saving, setSaving] = useState(false);
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) return;
+    setError('');
 
-    const updatedUser: User = {
-      ...user,
-      name,
-      jobTitle,
-      department,
-      password: password || user.password
-    };
+    const cleanName = name.trim();
+    if (!cleanName) {
+      setError('يرجى إدخال الاسم.');
+      return;
+    }
 
-    onUpdateProfile(updatedUser);
-    setSuccess('تم تحديث ملفك الشخصي وكلمة المرور بنجاح.');
+    const cleanPassword = password.trim();
+
+    setSaving(true);
+    try {
+      const updatedFields: Partial<User> & Record<string, any> = {
+        name: cleanName,
+        jobTitle,
+        department,
+        avatarColor,
+      };
+
+      if (cleanPassword) {
+        updatedFields.password = cleanPassword;
+      }
+
+      if (user.id) {
+        await updateDoc(doc(db, 'users', user.id), updatedFields);
+      }
+
+      const updatedUser: User = {
+        ...user,
+        ...updatedFields,
+        password: cleanPassword || user.password,
+      };
+
+      // Keep localStorage in sync
+      localStorage.setItem('currentUser', JSON.stringify(updatedUser));
+
+      onUpdateProfile(updatedUser);
+      setSuccess('تم تحديث ملفك الشخصي بنجاح.');
+      setPassword('');
+      setIsEditing(false);
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err) {
+      console.error('Profile Update Error:', err);
+      setError('حدث خطأ أثناء حفظ التعديلات. حاول مرة أخرى.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleCancel = () => {
+    setName(user.name);
+    setJobTitle(user.jobTitle || '');
+    setDepartment(user.department || '');
+    setAvatarColor(user.avatarColor || 'bg-indigo-600');
+    setPassword('');
+    setError('');
     setIsEditing(false);
-    setTimeout(() => setSuccess(''), 3000);
   };
 
   return (
@@ -43,7 +104,7 @@ export default function Profile({ user, onUpdateProfile, onLogout }: ProfileProp
           <div className="absolute inset-0 bg-black/15"></div>
         </div>
         <div className="px-6 pb-6 relative flex flex-col sm:flex-row items-center sm:items-end gap-4 -mt-16">
-          <div className={`w-28 h-28 rounded-2xl ${user.avatarColor || 'bg-indigo-600'} border-4 border-white text-white font-extrabold text-4xl flex items-center justify-center shadow-md z-10`}>
+          <div className={`w-28 h-28 rounded-2xl ${avatarColor} border-4 border-white text-white font-extrabold text-4xl flex items-center justify-center shadow-md z-10 transition-colors`}>
             {user.name.charAt(0)}
           </div>
           <div className="text-center sm:text-right flex-1 mb-2 z-10">
@@ -64,7 +125,7 @@ export default function Profile({ user, onUpdateProfile, onLogout }: ProfileProp
               </button>
             ) : (
               <button
-                onClick={() => setIsEditing(false)}
+                onClick={handleCancel}
                 className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-600 text-sm font-semibold rounded-xl transition"
               >
                 إلغاء
@@ -90,6 +151,16 @@ export default function Profile({ user, onUpdateProfile, onLogout }: ProfileProp
         >
           <CheckCircle className="w-4 h-4 text-emerald-600" />
           {success}
+        </motion.div>
+      )}
+
+      {error && (
+        <motion.div
+          initial={{ scale: 0.95, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          className="p-3.5 bg-red-50 border-r-4 border-red-500 text-red-700 text-xs rounded-xl font-medium"
+        >
+          {error}
         </motion.div>
       )}
 
@@ -185,6 +256,22 @@ export default function Profile({ user, onUpdateProfile, onLogout }: ProfileProp
                   </div>
                 </div>
 
+                {/* Email - read only */}
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-gray-700 block">البريد الإلكتروني</label>
+                  <div className="relative">
+                    <Mail className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <input
+                      type="email"
+                      className="w-full pr-9 pl-3 py-2 border border-gray-200 rounded-xl text-sm bg-gray-50 text-gray-500 cursor-not-allowed text-left"
+                      value={user.email}
+                      disabled
+                      dir="ltr"
+                    />
+                  </div>
+                  <p className="text-xxs text-gray-400">لا يمكن تغيير البريد الإلكتروني.</p>
+                </div>
+
                 <div className="space-y-1">
                   <label className="text-xs font-semibold text-gray-700 block">المسمى الوظيفي</label>
                   <div className="relative">
@@ -208,7 +295,7 @@ export default function Profile({ user, onUpdateProfile, onLogout }: ProfileProp
                   />
                 </div>
 
-                <div className="space-y-1">
+                <div className="space-y-1 sm:col-span-2">
                   <label className="text-xs font-semibold text-gray-700 block">تحديث كلمة المرور</label>
                   <div className="relative">
                     <Lock className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -216,9 +303,33 @@ export default function Profile({ user, onUpdateProfile, onLogout }: ProfileProp
                       type="password"
                       className="w-full pr-9 pl-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-indigo-500 transition text-left"
                       value={password}
-                      placeholder="تغيير كلمة السر الحالية"
+                      placeholder="اتركها خالية لو لا تريد تغيير كلمة المرور"
                       onChange={(e) => setPassword(e.target.value)}
+                      dir="ltr"
                     />
+                  </div>
+                </div>
+
+                {/* Avatar color picker */}
+                <div className="space-y-2 sm:col-span-2">
+                  <label className="text-xs font-semibold text-gray-700 flex items-center gap-1.5">
+                    <Palette className="w-4 h-4 text-gray-400" />
+                    لون الصورة الرمزية
+                  </label>
+                  <div className="flex flex-wrap gap-2">
+                    {AVATAR_COLORS.map((color) => (
+                      <button
+                        key={color}
+                        type="button"
+                        onClick={() => setAvatarColor(color)}
+                        className={`w-9 h-9 rounded-xl ${color} flex items-center justify-center transition ring-offset-2 ${
+                          avatarColor === color ? 'ring-2 ring-indigo-500' : 'hover:opacity-80'
+                        }`}
+                        aria-label={color}
+                      >
+                        {avatarColor === color && <CheckCircle className="w-4 h-4 text-white" />}
+                      </button>
+                    ))}
                   </div>
                 </div>
               </div>
@@ -226,11 +337,12 @@ export default function Profile({ user, onUpdateProfile, onLogout }: ProfileProp
               <div className="flex justify-end pt-2">
                 <button
                   type="submit"
-                  className="flex items-center gap-1.5 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-xl shadow-md shadow-indigo-600/10 transition"
+                  disabled={saving}
+                  className="flex items-center gap-1.5 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-xl shadow-md shadow-indigo-600/10 transition disabled:opacity-60 disabled:cursor-not-allowed"
                   id="save_profile_btn"
                 >
                   <Save className="w-4 h-4" />
-                  حفظ التعديلات
+                  {saving ? 'جاري الحفظ...' : 'حفظ التعديلات'}
                 </button>
               </div>
             </form>

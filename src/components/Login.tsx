@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { User, Role } from '../types';
-import { Mail, Lock, User as UserIcon, Briefcase, Eye, EyeOff, ShieldCheck } from 'lucide-react';
+import { Mail, Lock, User as UserIcon, Briefcase, Eye, EyeOff, ShieldCheck, Building2 } from 'lucide-react';
 import { motion } from 'motion/react';
+import { db } from '../firebase';
+import { collection, query, where, getDocs, addDoc } from "firebase/firestore";
 
 interface LoginProps {
   onLoginSuccess: (user: User) => void;
@@ -14,7 +16,7 @@ export default function Login({ onLoginSuccess, users, onRegisterUser }: LoginPr
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  
+
   // Registration States
   const [name, setName] = useState('');
   const [role, setRole] = useState<Role>('موظف');
@@ -23,116 +25,158 @@ export default function Login({ onLoginSuccess, users, onRegisterUser }: LoginPr
 
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setSuccess('');
 
+    const cleanEmail = email.toLowerCase().trim();
+    const cleanPassword = password.trim();
+
     if (isLogin) {
-      if (!email || !password) {
+      if (!cleanEmail || !cleanPassword) {
         setError('يرجى ملء جميع الحقول المطلوبة.');
         return;
       }
 
-      // Check user
-      const existingUser = users.find(
-        (u) => u.email.toLowerCase() === email.toLowerCase() && u.password === password
-      );
+      setLoading(true);
+      try {
+        const q = query(collection(db, "users"), where("email", "==", cleanEmail));
+        const querySnapshot = await getDocs(q);
 
-      if (existingUser) {
-        // Save to currentUser localStorage & state
-        localStorage.setItem('currentUser', JSON.stringify(existingUser));
-        localStorage.setItem('currentUser_session', 'true');
-        onLoginSuccess(existingUser);
-      } else {
-        setError('البريد الإلكتروني أو كلمة المرور غير صحيحة.');
+        if (!querySnapshot.empty) {
+          const userDoc = querySnapshot.docs[0];
+          const userData = userDoc.data();
+
+          if (String(userData.password).trim() === cleanPassword) {
+            const existingUser = { id: userDoc.id, ...userData } as User;
+            localStorage.setItem('currentUser', JSON.stringify(existingUser));
+            localStorage.setItem('currentUser_session', 'true');
+            onLoginSuccess(existingUser);
+          } else {
+            setError('كلمة المرور غير صحيحة.');
+          }
+        } else {
+          setError('البريد الإلكتروني غير مسجل.');
+        }
+      } catch (err) {
+        console.error("Firebase Login Error:", err);
+        setError('حدث خطأ أثناء الاتصال بقاعدة البيانات.');
+      } finally {
+        setLoading(false);
       }
+
     } else {
       // Registration flow
-      if (!name || !email || !password || !jobTitle || !department) {
+      if (!name || !cleanEmail || !cleanPassword || !jobTitle || !department) {
         setError('يرجى ملء جميع الحقول لتسجيل حسابك.');
         return;
       }
 
-      // Check if email already exists
-      const emailExists = users.some(u => u.email.toLowerCase() === email.toLowerCase());
-      if (emailExists) {
-        setError('هذا البريد الإلكتروني مسجل بالفعل.');
-        return;
+      setLoading(true);
+      try {
+        const q = query(collection(db, "users"), where("email", "==", cleanEmail));
+        const querySnapshot = await getDocs(q);
+
+        if (!querySnapshot.empty) {
+          setError('هذا البريد الإلكتروني مسجل بالفعل.');
+          setLoading(false);
+          return;
+        }
+
+        const colors = ['bg-indigo-600', 'bg-pink-500', 'bg-emerald-500', 'bg-amber-500', 'bg-blue-600', 'bg-violet-600', 'bg-rose-500'];
+        const randomColor = colors[Math.floor(Math.random() * colors.length)];
+
+        const newUserData = {
+          name,
+          email: cleanEmail,
+          password: cleanPassword,
+          role,
+          jobTitle,
+          department,
+          avatarColor: randomColor,
+          joinedDate: new Date().toISOString().split('T')[0]
+        };
+
+        const docRef = await addDoc(collection(db, "users"), newUserData);
+
+        const newUser: User = {
+          id: docRef.id,
+          ...newUserData
+        } as User;
+
+        onRegisterUser(newUser);
+        setSuccess('تم إنشاء الحساب بنجاح! يمكنك الآن تسجيل الدخول.');
+
+        // Auto toggle to login after 1.5s
+        setTimeout(() => {
+          setIsLogin(true);
+          setEmail(newUser.email);
+          setPassword('');
+          setSuccess('');
+        }, 1500);
+
+      } catch (err) {
+        console.error("Firebase Registration Error:", err);
+        setError('حدث خطأ أثناء إنشاء الحساب في السيرفر.');
+      } finally {
+        setLoading(false);
       }
-
-      const colors = ['bg-indigo-600', 'bg-pink-500', 'bg-emerald-500', 'bg-amber-500', 'bg-blue-600', 'bg-violet-600', 'bg-rose-500'];
-      const randomColor = colors[Math.floor(Math.random() * colors.length)];
-
-      const newUser: User = {
-        name,
-        email: email.toLowerCase(),
-        password,
-        role,
-        jobTitle,
-        department,
-        avatarColor: randomColor,
-        joinedDate: new Date().toISOString().split('T')[0]
-      };
-
-      onRegisterUser(newUser);
-      setSuccess('تم إنشاء الحساب بنجاح! يمكنك الآن تسجيل الدخول.');
-      
-      // Auto toggle to login after 1.5s
-      setTimeout(() => {
-        setIsLogin(true);
-        setEmail(newUser.email);
-        setPassword('');
-        setSuccess('');
-      }, 1500);
     }
   };
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-gray-50 flex-col md:flex-row relative overflow-hidden font-sans">
-      
+
       {/* Decorative Orbs */}
       <div className="absolute -top-40 -left-40 w-96 h-96 bg-indigo-200 rounded-full mix-blend-multiply filter blur-3xl opacity-40 animate-pulse duration-4000"></div>
       <div className="absolute -bottom-40 -right-40 w-96 h-96 bg-blue-200 rounded-full mix-blend-multiply filter blur-3xl opacity-40 animate-pulse duration-3000"></div>
 
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0, y: 30 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6 }}
         className="w-full max-w-4xl bg-white rounded-2xl shadow-xl overflow-hidden flex flex-col md:flex-row border border-gray-100 relative z-10"
         id="auth_card"
       >
-        {/* Banner with gradient (Theme Identity) */}
-        <div className="md:w-1/2 p-12 text-white flex flex-col justify-between" 
+        {/* Banner with gradient + Profile identity */}
+        <div className="md:w-1/2 p-12 text-white flex flex-col justify-between"
              style={{ background: 'linear-gradient(135deg, #4f46e5 0%, #3b82f6 100%)' }}>
           <div>
-            <div className="flex items-center gap-3 mb-6" id="auth_logo_container">
+            <div className="flex items-center gap-3 mb-10" id="auth_logo_container">
               <div className="bg-white/20 p-2.5 rounded-xl backdrop-blur-md">
                 <ShieldCheck className="w-8 h-8 text-white" />
               </div>
               <span className="text-2xl font-bold tracking-tight">نظام شركتي</span>
             </div>
-            
-            <h1 className="text-3xl font-extrabold mb-4 leading-snug">نظام إدارة الشركات والموارد المتكامل</h1>
-            <p className="text-white/80 text-sm leading-relaxed mb-8">
-              منصة ذكية ومبسطة تتيح لك تنظيم العمل، متابعة شؤون الموظفين، تتبع الفعاليات والمهام، إضافة إلى إثبات الحضور والانصراف بمرونة وفعالية تامة.
-            </p>
+
+            {/* Profile Avatar Block */}
+            <div className="flex flex-col items-center text-center mb-8" id="auth_profile_block">
+              <div className="w-24 h-24 rounded-full bg-white/15 border-2 border-white/30 backdrop-blur-md flex items-center justify-center mb-4 shadow-lg">
+                <UserIcon className="w-12 h-12 text-white" />
+              </div>
+              <h2 className="text-xl font-bold mb-1">
+                {isLogin ? 'مرحباً بعودتك' : 'انضم إلى فريقنا'}
+              </h2>
+              <p className="text-white/70 text-sm max-w-xs">
+                {isLogin
+                  ? 'سجّل الدخول للوصول إلى لوحة التحكم الخاصة بك وإدارة مهامك اليومية.'
+                  : 'أنشئ ملفك الشخصي الآن وابدأ رحلتك معنا داخل النظام.'}
+              </p>
+            </div>
           </div>
 
-          <div className="space-y-4 text-xs text-white/70 bg-white/10 p-4 rounded-xl border border-white/10">
-            <h3 className="font-semibold text-white">⚙️ حسابات تجريبية سريعة:</h3>
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <p className="font-medium text-white/90">حاسب المدير:</p>
-                <p>admin@company.com</p>
-                <p>كلمة السر: 123</p>
-              </div>
-              <div>
-                <p className="font-medium text-white/90">حاسب الموظف:</p>
-                <p>sara@company.com</p>
-                <p>كلمة السر: 123</p>
-              </div>
+          {/* Footer Info */}
+          <div className="flex items-start gap-3 text-xs text-white/80 bg-white/10 p-4 rounded-xl border border-white/10">
+            <div className="bg-white/15 p-2 rounded-lg shrink-0">
+              <Building2 className="w-5 h-5 text-white" />
+            </div>
+            <div className="space-y-1.5 leading-relaxed">
+              <p className="font-semibold text-white">⚙️ حساب المدير:</p>
+              <p dir="ltr" className="text-left">almetwaly088@gmail.com</p>
+              <p dir="ltr" className="text-left">Call Me: 01553157374</p>
             </div>
           </div>
         </div>
@@ -149,7 +193,7 @@ export default function Login({ onLoginSuccess, users, onRegisterUser }: LoginPr
           </div>
 
           {error && (
-            <motion.div 
+            <motion.div
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               className="mb-4 p-3 bg-red-50 border-r-4 border-red-500 text-red-700 text-xs rounded-lg font-medium"
@@ -160,7 +204,7 @@ export default function Login({ onLoginSuccess, users, onRegisterUser }: LoginPr
           )}
 
           {success && (
-            <motion.div 
+            <motion.div
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               className="mb-4 p-3 bg-emerald-50 border-r-4 border-emerald-500 text-emerald-700 text-xs rounded-lg font-medium"
@@ -273,9 +317,9 @@ export default function Login({ onLoginSuccess, users, onRegisterUser }: LoginPr
               <div className="flex justify-between items-center">
                 <label className="text-xs font-semibold text-gray-700">كلمة المرور</label>
                 {isLogin && (
-                  <button 
-                    type="button" 
-                    onClick={() => alert('لأغراض النظام التجريبي، يرجى مراجعة الخانة الملونة الهامشية للحصول على كلمة المرور وهي (123).')} 
+                  <button
+                    type="button"
+                    onClick={() => alert('نسيت الرمز؟ لا تقلق! يمكنك إنشاء حساب جديد لتسجيل الدخول واختبار النظام. إذا كنت بحاجة إلى مساعدة إضافية، يرجى الاتصال بنا على الرقم: 01553157374')}
                     className="text-xs text-indigo-600 hover:underline"
                   >
                     نسيت الرمز؟
@@ -306,14 +350,17 @@ export default function Login({ onLoginSuccess, users, onRegisterUser }: LoginPr
             {/* Submit Button */}
             <button
               type="submit"
-              className="w-full text-white py-2.5 rounded-xl font-semibold shadow-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition"
+              disabled={loading}
+              className="w-full text-white py-2.5 rounded-xl font-semibold shadow-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition disabled:opacity-60 disabled:cursor-not-allowed"
               style={{
                 background: 'linear-gradient(135deg, #4f46e5 0%, #3b82f6 100%)',
-                cursor: 'pointer'
+                cursor: loading ? 'not-allowed' : 'pointer'
               }}
               id="auth_submit_btn"
             >
-              {isLogin ? 'دخول للنظام' : 'تسجيل الحساب الجديد'}
+              {loading
+                ? 'جاري المعالجة...'
+                : (isLogin ? 'دخول للنظام' : 'تسجيل الحساب الجديد')}
             </button>
           </form>
 

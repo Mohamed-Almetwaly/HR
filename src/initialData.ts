@@ -1,11 +1,11 @@
 import { User, Task, Announcement, AttendanceRecord, EmployeeRequest } from './types';
 export const INITIAL_USERS: User[] = [
   {
-    name: 'أحمد العتيبي',
-    email: 'admin@company.com',
-    password: '123',
+    name: 'محمد المتولي',
+    email: 'almetwaly088@gmail.com',
+    password: '01030705465',
     role: 'مدير',
-    jobTitle: 'الرئيس التنفيذي العام',
+    jobTitle: 'FRONT END WEB DEVELOPER',
     department: 'الإدارة العليا',
     avatarColor: 'bg-indigo-600',
     joinedDate: '2024-01-15'
